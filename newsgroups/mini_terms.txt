@@ -1,5 +1,5 @@
-david
-rex
-wood
-subject
-call
+compute
+puck
+stick
+random
+callback
