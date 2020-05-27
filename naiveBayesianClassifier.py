@@ -55,23 +55,29 @@ class Naive_Bayesian_Classifier:
         test_one_doc_file = self._get_file_by_line('/Users/crystalcontreras/Desktop/DePaul/2020Spring/CSC480/Assignment4/newsgroups/test1doc.txt')
         self._nbc_testing_component(vocab, test_one_doc_file)
 
-       
     def _nbc_testing_component(self, vocabulary, test_matrix_file):
-        # Given a test document X
         docs_with_vocab_matrix = self._get_documents_with_vocab(vocabulary, test_matrix_file)
-        print("Testing Matrix w/Vocab: ", docs_with_vocab_matrix)
-        
+        classified_documents = []
+
+        for document in docs_with_vocab_matrix.keys():
+            prediction = self._predict_category_for_doc(docs_with_vocab_matrix[document])
+            prob_cat_given_doc = prediction[0]
+            class_label = prediction[1]
+            classified_documents.append([document, class_label, prob_cat_given_doc])
+        print("Classified document: ", classified_documents)
+        return classified_documents
+
+    def _predict_category_for_doc(self, document):
+        # Given a test document X
         # Let n be the # of word occurrences in X 
         n = 0
         # Condense dictionary to only vocab terms being used
         condensed_dict = {} 
 
-        for doc in docs_with_vocab_matrix.keys():
-            for vocab in docs_with_vocab_matrix[doc].keys():
-                if docs_with_vocab_matrix[doc][vocab] > 0:
-                    n += docs_with_vocab_matrix[doc][vocab]
-                    condensed_dict[vocab] = docs_with_vocab_matrix[doc][vocab]
-        print("Condensed Dictionary: ", condensed_dict)
+        for vocab in document.keys():
+            if document[vocab] > 0:
+                n += document[vocab]
+                condensed_dict[vocab] = document[vocab]
 
         p_category_given_document_numerator = []
         p_category_given_document_denominator = 0
@@ -105,11 +111,7 @@ class Naive_Bayesian_Classifier:
         category = heapq.heappop(class_prediction)
         p_c_given_d = -(category[0])    # Turn it back into a positive int
         print(f'Class prediction: {category[1]}. P(c|doc): {p_c_given_d}')
-        return category[1]
-
-
-    def _predict_category_for_doc(self, document):
-        return
+        return (p_c_given_d, category[1])
 
 
     def _get_classes(self, class_filepath):
