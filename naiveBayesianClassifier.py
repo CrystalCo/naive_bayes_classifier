@@ -11,6 +11,34 @@ class Naive_Bayesian_Classifier:
         self.test_matrix_file = test_matrix_file
         self.terms_file = terms_file
 
+    def Naive_Bayesian_Classifier(self):
+        """
+            First, uses the Naive Bayesian algorithm to create a model in the form of probabilities.
+            Then, tests the model by predicting the class label for a test data set.
+            Lastly, measures the classification accuracy of the model.
+        """
+        ##### MODEL CONSTRUCTION #####
+        predicted_classes = self.naive_bayesian_algorithm()
+
+        ##### MODEL EVALUATION #####
+        accuracy_metrics = self._evaluation(self.test_class_file, predicted_classes)
+
+        print('Conditional Probabilities: ')
+        for key in self.conditional_probabilities.keys():
+            print(f'Class: {key}')
+            for term in self.conditional_probabilities[key]:
+                print(f'{term}: {self.conditional_probabilities[key][term]}')
+                if term == 'stick':
+                    break
+
+        print("\nClassified documents: ")
+        print("Document Index   Class   Probability of class given document")
+        # for i in range(10):
+        for i in range(len(predicted_classes)):
+            print(predicted_classes[i])
+            
+        print(f'\nAccuracy Metrics: {accuracy_metrics}\n')
+
     def naive_bayesian_algorithm(self):
         """
             Split into 2 parts: training component & testing component.
@@ -49,14 +77,19 @@ class Naive_Bayesian_Classifier:
                 p_word_given_category = (n_ij + 1) / (n_i + vocab_length)
                 self.conditional_probabilities[category][word] = p_word_given_category
 
-        print(f'Conditional Probabilities: {self.conditional_probabilities}')
-
-        ##### TESTING COMPONENT #####
-        test_one_doc_file = self._get_file_by_line('/Users/crystalcontreras/Desktop/DePaul/2020Spring/CSC480/Assignment4/newsgroups/test1doc.txt')
-        self._nbc_testing_component(vocab, test_one_doc_file)
+        ##### TESTING/CLASSIFICATION COMPONENT #####
+        predicted_classes = self._nbc_testing_component(vocab, self.test_matrix_file)
+        return predicted_classes
 
     def _nbc_testing_component(self, vocabulary, test_matrix_file):
-        docs_with_vocab_matrix = self._get_documents_with_vocab(vocabulary, test_matrix_file)
+        """
+            Takes as input a vocabulary list and a pathname to a test matrix.
+            Returns a list of arrays of length 3 with the document index name in the first column,
+            predicted class label in the 2nd column, and probability of class/category given document
+            in the third column.
+        """
+        test_matrix = self._get_file_by_line(test_matrix_file)
+        docs_with_vocab_matrix = self._get_documents_with_vocab(vocabulary, test_matrix)
         classified_documents = []
 
         for document in docs_with_vocab_matrix.keys():
@@ -64,11 +97,14 @@ class Naive_Bayesian_Classifier:
             prob_cat_given_doc = prediction[0]
             class_label = prediction[1]
             classified_documents.append([document, class_label, prob_cat_given_doc])
-        print("Classified document: ", classified_documents)
         return classified_documents
 
     def _predict_category_for_doc(self, document):
-        # Given a test document X
+        """ 
+            Takes as input one document.
+            Returns a tuple with the probability of category given document in the first index
+            and the predicted class label in the 2nd index.
+        """
         # Let n be the # of word occurrences in X 
         n = 0
         # Condense dictionary to only vocab terms being used
@@ -104,24 +140,55 @@ class Naive_Bayesian_Classifier:
 
         for i in p_category_given_document_numerator:
             result = i / p_category_given_document_denominator
-            print(f'Result: {result}')
             # Append to heapq.  Multiply by -1 to return max from the heap
             heapq.heappush(class_prediction, (result * -1, p_category_given_document_numerator.index(i)))
 
         category = heapq.heappop(class_prediction)
         p_c_given_d = -(category[0])    # Turn it back into a positive int
-        print(f'Class prediction: {category[1]}. P(c|doc): {p_c_given_d}')
         return (p_c_given_d, category[1])
 
+    def _evaluation(self, actual_class_documents, predicted_class_table):
+        """
+            Returns the Classification Accuracy (i.e. the ratio of correct predictions to number of test instances)
+
+            Evaluates/meausures the accuracy of the classifier.
+            Takes as input: 
+                - the actual classes for the test data; and
+                - our predicted classes for the test data
+
+            Applies the learned model returned from the training component to predict a class label for each of the test instances in the test data. 
+            Then for each test instance, it compares the actual test class label to the predicted class label. 
+            
+            It should also have the option to output the predicted class labels a portion of the test data (this is to illustrate that your classifier is working properly). 
+            Your program should also provide the capability to view the learned class probabilities for specified terms (again, this is to provide optional intermediate results demonstrating the proper functioning of your classifier).
+        """
+        actual_class_table = self._get_file_by_line(actual_class_documents)
+
+        # Assign variable to store count of correct predictions and false predictions for each class
+        correct = 0
+        incorrect = 0
+        
+        # For each actual class row, split by tab character,
+        for doc_row in range(len(actual_class_table)):
+            # then compare the actual class value with the predicted class value from predicted class table
+            ac = actual_class_table[doc_row].split('\t')
+            if int(ac[1]) == predicted_class_table[doc_row][1]:
+                correct += 1
+            else:
+                incorrect +=1
+
+        return correct/(correct + incorrect)
 
     def _get_classes(self, class_filepath):
-        # get list containing document index in the first column and class ID in the 2nd column
-        # return the set of distinct classes (to be used in training algorithm)
-        # we need to keep the document indexes, we do need the total count of documents
-        # total count of docs = # of read lines
+        """
+            Reads in a file, splits that file by rows as a list containing the 
+            document index in the first column and class ID in the 2nd column.
+            Returns a dictionary of distinct classes with empty sets as their values
+            as placeholders for future term input.
+        """
         classes_filepath = class_filepath
         class_list = self._get_file_by_line(classes_filepath)
-        total_num_of_documents = len(class_list)    # should be 800
+        total_num_of_documents = len(class_list)
 
         class_dict = dict()
         
@@ -195,6 +262,12 @@ class Naive_Bayesian_Classifier:
         return sample_dict
 
     def _get_file_by_line(self, filepath):
+        """
+            Input: a string pathname to a file
+            Reads in the file by line. 
+            Removes the newline character at the end of each line.
+            Returns the file rows as a list of strings.
+        """
         file = open(filepath)
         content_list = file.readlines()
         file.close()
