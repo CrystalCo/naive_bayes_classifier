@@ -60,10 +60,10 @@ class Naive_Bayesian_Classifier:
         correct = 0
         incorrect = 0
         
-        # For each actual class row, split by tab character,
+        # For each actual class row
         for doc_row in range(len(actual_class_table)):
-            # then compare the actual class value with the predicted class value from predicted class table
             actual_class_table[doc_row] = actual_class_table[doc_row].split('\t')
+            # Compare the actual class value with the predicted class value for that document
             if int(actual_class_table[doc_row][1]) == predicted_class_table[doc_row][1]:
                 correct += 1
             else:
@@ -214,7 +214,7 @@ class Naive_Bayesian_Classifier:
             # For each word in the vocab, calculate the # of occurences of word in docs
             for word in vocab:
                 n_ij = total_word_frequencies_in_documents[word]
-                p_word_given_category = (n_ij + 1) / (n_i + vocab_length)
+                p_word_given_category = (n_ij + 1) / (n_i + vocab_length)   # LaPlace smoothing
                 self.conditional_probabilities[category][word] = p_word_given_category
 
         ##### TESTING/CLASSIFICATION COMPONENT #####
@@ -243,11 +243,11 @@ class Naive_Bayesian_Classifier:
 
         # Return the category
         for category in self.conditional_probabilities.keys():
-            # Start the array with the Probability of the category
+            # Start the array with the Probability of the category.  P(ci)
             p_category_given_doc = [self.conditional_probabilities[category]['p_c']]
-            
+            # P(ai|ci)*P(ai|ci)*P(ai|ci)*P(ai|ci)
             for term in condensed_dict.keys():
-                # get the conditional probability only for the terms that appear in the doc, and make its frequency its exponent
+                # get the conditional probability for the terms that appear in the doc, and make its number of occurences its exponent. 
                 p_a_given_c = self.conditional_probabilities[category][term]
                 p_a_given_c = p_a_given_c**condensed_dict[term]
                 # Append the result to our P(category | doc) array to multiply later
@@ -259,11 +259,12 @@ class Naive_Bayesian_Classifier:
             p_category_given_document_numerator.append(result)
             # Add result to the denominator to divide by later 
             p_category_given_document_denominator += result
-
-        for i in p_category_given_document_numerator:
-            result = i / p_category_given_document_denominator
-            # Append to heapq.  Multiply by -1 to return max from the heap
-            heapq.heappush(class_prediction, (result * -1, p_category_given_document_numerator.index(i)))
+            
+        # Get category prediction for this document by dividing the P(c|d) by the sum of the numerators
+        for p_cat_given_doc in p_category_given_document_numerator:
+            result = p_cat_given_doc / p_category_given_document_denominator
+            # Append to heapq.  Multiply by -1 to return the max Probability of class given document from the heap
+            heapq.heappush(class_prediction, (result * -1, p_category_given_document_numerator.index(p_cat_given_doc)))
 
         category = heapq.heappop(class_prediction)
         p_c_given_d = -(category[0])    # Turn it back into a positive int
