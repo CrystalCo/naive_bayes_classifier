@@ -2,22 +2,33 @@
 import numpy as np
 import pandas as pd 
 from scipy import stats
-import matplotlib.pyplot as plt
+import math
 
-test_row = [1,3,5,2,3,4,5,2]
 
 # Pass in dataframe of training data and target.
 file_location = '/Users/crystalcontreras/Desktop/DePaul/2020Spring/CSC480/Assignment4/knn-csc480-a4.xls'
 data = pd.read_excel(file_location, header=0).loc[0:19].drop('Unnamed: 0', axis=1)
+data.replace(' ', np.nan, inplace=True)
 test = pd.read_excel(file_location).loc[21:25].drop('Unnamed: 0', axis=1)
+test.replace(' ', np.nan, inplace=True)
+
+def average_ratings(data, target_item):
+    """ Returns average rating for a given movie. """
+    avg_rating = data[target_item].sum()
+    if avg_rating:
+        return avg_rating/len(data[target_item])
+    else:
+        return 0 
 
 def predict_ratings(data, target, K):
     """
-        The predicted rating of user u_t on item i_t will be the weighted average of the ratings of the K 
-        neighbors on item i_t (with the weight of the neighbor's being the similarity of that neighbor to u_t)
+        data :: type DataFrame
+        target :: type Series
+        K :: type int; Represents k-neighbors from target item
+        The predicted rating of user on target item using the weighted average of 
+        the ratings of the K-nearest neighbors on target item.
     """
-    data_corr = data
-    data_corr.replace(' ', np.nan, inplace=True)
+    data_corr = pd.DataFrame(data, copy=True)
 
     # For each row in dataframe, compute correlation of row with target row.
     corr = []
@@ -47,25 +58,29 @@ def predict_ratings(data, target, K):
 
     # Take top K rows, and use weighted average to create a prediction for every column.
     top_k_rows = data_corr.iloc[0:new_K]
-    target_row = target
-    movies = top_k_rows.columns
+    target_row = pd.Series(target, copy=True)
+    movies = data_corr.columns
+    movies = movies.drop(labels='corr')    # Drop 'corr' column
     predictions = pd.Series(target_row, copy=True)
 
     for movie in movies:
         numerator = 0
         denominator = 0
-        # If the item has not been rated
+        # If the movie has not been rated by user, predict a rating
         for index, row in top_k_rows.iterrows():
             if not np.isnan(row[movie]):
                 # Add the weighted average to numerator and sum of correlations in denominator 
                 numerator += row[movie] * row['corr']
                 denominator += row['corr']
-            
-        average_rating = numerator / denominator
-        predictions.update(pd.Series([average_rating], index=[movie]))
+
+        if not numerator:
+            # If out of the k-nearest neighbors, no co-rated items exist, predict rating based on average rating
+            predictions.update(pd.Series([average_ratings(data, movie)], index=[movie]))
+        else:
+            average_rating = numerator / denominator
+            predictions.update(pd.Series([average_rating], index=[movie]))
 
     return predictions
-
 
 
 def predict_rating(data, target, target_item, K):
@@ -77,15 +92,13 @@ def predict_rating(data, target, target_item, K):
         rating to measure prediction error rate.
     """
     predictions = predict_ratings(data, target, K)
-    print(f'Predictions:\n{predictions}')
     movie_rating_prediction = predictions.loc[target_item]
-    print(f'\nPrediction rating on movie {target_item}: {movie_rating_prediction}\n')
     return movie_rating_prediction
     
-
 def recommend_top_n(data, target, N, K):
     """
-        Given a user u_t and the number of desired recommendations N, generates the top N recommended items for u_t. 
+        Given a user (target) and the number of desired recommendations N, 
+        generates the top N recommended items for user. 
     """
     target_recommendations = pd.Series(target, copy=True)
     rating_predictions = predict_ratings(data, target_recommendations, K)
@@ -99,7 +112,7 @@ def recommend_top_n(data, target, N, K):
     return rating_predictions[0:min(N, len(rating_predictions))]
 
     
-def test_recommender(test_data):
+def test_recommender(data, test_data, K):
     """
         Compute predicted ratings for the existing ratings of NU1-NU5. 
         Measure the Mean Absolute Error (MAE) on these predictions for the test users. 
@@ -108,7 +121,26 @@ def test_recommender(test_data):
         Then, for each of these items you can compute the absolute value of the difference between the predicted and the actual ratings. 
         Finally, you can average these errors across all test cases to obtain the MAE.
     """
-    pass
+    test_users = pd.DataFrame(test_data, copy=True)
+
+    # Compute predicted ratings for the existing ratings of NU1-NU5. 
+    numerator = 0
+    denominator = len(test_users)
+
+    for index, row in test_users.iterrows():
+        # For each test user, use the remaining ratings of the target test user to generate prediction for the test item being considered. 
+        predictions = predict_ratings(data, row, K)
+        # Measure the Mean Absolute Error (MAE) on these predictions for the test users. 
+        for i, prediction in predictions.iteritems():
+            if not np.isnan(row.loc[i]):
+                print(f'Prediction: {prediction}.   Actual: {row.loc[i]}')
+                rating_difference = prediction - row.loc[i]
+                numerator += abs(rating_difference)
+        
+        MAE = math.sqrt(numerator/denominator)
+        print("MAE: ", MAE)
+
+
 
 
 # Your program should allow you to specify a user in the data (e.g., a user's row number in the ratings matrix) and the value of N. 
@@ -117,16 +149,11 @@ target_user.replace(' ', np.nan, inplace=True)
 target_movie = 'THE DA VINCI CODE'
 N = 2
 K = 3 
+
 # predict_rating(data, target_user, target_movie, 3)
-print(recommend_top_n(data, target_user, N, K))
+# print(recommend_top_n(data, target_user, N, K))
+test_recommender(data, test, K)
 
 
 
 
-
-
-
-
-
-
-# The index is not a column; it is its own thing
