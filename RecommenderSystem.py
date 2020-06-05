@@ -43,6 +43,7 @@ def predict_ratings(data, target, K):
         new_x = []
         new_y = []
         for j in range(len(target)):
+            # Append to lists only for movies that both users have rated
             if not np.isnan(x[j]) and not np.isnan(y[j]):
                 new_x.append(x[j])
                 new_y.append(y[j])
@@ -153,7 +154,6 @@ def test_recommender(data, test_data, K, print_diff=False):
         
         MAE = math.sqrt(numerator/denominator)
         MAE_Avg.append(MAE)
-        print()
 
     if MAE_Avg != []:
         return np.sum(MAE_Avg)/len(MAE_Avg)
